@@ -439,6 +439,12 @@ func DefaultConfig() *Config {
 			SendFile: ToolConfig{
 				Enabled: true,
 			},
+			Browser: BrowserConfig{
+				Enabled:  false,
+				Headless: true,
+				Timeout:  30,
+				CDPPort:  9222,
+			},
 			MCP: MCPConfig{
 				ToolConfig: ToolConfig{
 					Enabled: false,

@@ -676,6 +676,14 @@ type ReadFileToolConfig struct {
 	MaxReadFileSize int  `json:"max_read_file_size"`
 }
 
+type BrowserConfig struct {
+	Enabled  bool   `json:"enabled" env:"PICOCLAW_TOOLS_BROWSER_ENABLED"`
+	Session  string `json:"session" env:"PICOCLAW_TOOLS_BROWSER_SESSION"`
+	Headless bool   `json:"headless" env:"PICOCLAW_TOOLS_BROWSER_HEADLESS"`
+	Timeout  int    `json:"timeout" env:"PICOCLAW_TOOLS_BROWSER_TIMEOUT"`
+	CDPPort  int    `json:"cdp_port" env:"PICOCLAW_TOOLS_BROWSER_CDP_PORT"`
+}
+
 type ToolsConfig struct {
 	AllowReadPaths  []string           `json:"allow_read_paths"  env:"PICOCLAW_TOOLS_ALLOW_READ_PATHS"`
 	AllowWritePaths []string           `json:"allow_write_paths" env:"PICOCLAW_TOOLS_ALLOW_WRITE_PATHS"`
@@ -685,6 +693,7 @@ type ToolsConfig struct {
 	Skills          SkillsToolsConfig  `json:"skills"`
 	MediaCleanup    MediaCleanupConfig `json:"media_cleanup"`
 	MCP             MCPConfig          `json:"mcp"`
+	Browser         BrowserConfig      `json:"browser"`
 	AppendFile      ToolConfig         `json:"append_file"                                              envPrefix:"PICOCLAW_TOOLS_APPEND_FILE_"`
 	EditFile        ToolConfig         `json:"edit_file"                                                envPrefix:"PICOCLAW_TOOLS_EDIT_FILE_"`
 	FindSkills      ToolConfig         `json:"find_skills"                                              envPrefix:"PICOCLAW_TOOLS_FIND_SKILLS_"`
@@ -974,6 +983,8 @@ func (t *ToolsConfig) IsToolEnabled(name string) bool {
 		return t.WriteFile.Enabled
 	case "mcp":
 		return t.MCP.Enabled
+	case "browser":
+		return t.Browser.Enabled
 	default:
 		return true
 	}

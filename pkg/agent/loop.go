@@ -94,6 +94,16 @@ func NewAgentLoop(
 		stateManager = state.NewManager(defaultAgent.Workspace)
 	}
 
+	// Browser automation tool (agent-browser CLI)
+	if cfg.Tools.Browser.Enabled {
+		registry.Register(tools.NewBrowserTool(tools.BrowserToolOptions{
+			Session:  cfg.Tools.Browser.Session,
+			Headless: cfg.Tools.Browser.Headless,
+			Timeout:  cfg.Tools.Browser.Timeout,
+			CDPPort:  cfg.Tools.Browser.CDPPort,
+		}))
+	}
+
 	al := &AgentLoop{
 		bus:         msgBus,
 		cfg:         cfg,
