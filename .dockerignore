@@ -5,6 +5,8 @@ build/
 config/
 .env
 .env.example
-*.md
+README.md
+CHANGELOG.md
+CONTRIBUTING.md
 LICENSE
 assets/

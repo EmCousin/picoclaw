@@ -8,11 +8,10 @@ services:
     container_name: picoclaw-agent
     profiles:
       - agent
-    # Uncomment to access host network; leave commented unless needed.
-    #extra_hosts:
-    #  - "host.docker.internal:host-gateway"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      - ./data:/root/.picoclaw
+      - ./data:/home/picoclaw/.picoclaw
     entrypoint: ["picoclaw", "agent"]
     stdin_open: true
     tty: true
@@ -22,13 +21,18 @@ services:
   #   docker compose -f docker/docker-compose.yml up picoclaw-gateway
   # ─────────────────────────────────────────────
   picoclaw-gateway:
-    image: docker.io/sipeed/picoclaw:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: picoclaw:whatsapp
     container_name: picoclaw-gateway
     restart: on-failure
     profiles:
       - gateway
-    # Uncomment to access host network; leave commented unless needed.
-    #extra_hosts:
-    #  - "host.docker.internal:host-gateway"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - PICOCLAW_HOME=/home/picoclaw/.picoclaw
+    command: ["gateway"]
     volumes:
-      - ./data:/root/.picoclaw
+      - ./data:/home/picoclaw/.picoclaw
