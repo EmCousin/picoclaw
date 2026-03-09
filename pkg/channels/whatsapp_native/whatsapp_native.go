@@ -68,7 +68,7 @@ func NewWhatsAppNativeChannel(
 	bus *bus.MessageBus,
 	storePath string,
 ) (channels.Channel, error) {
-	base := channels.NewBaseChannel("whatsapp_native", cfg, bus, cfg.AllowFrom, channels.WithMaxMessageLength(65536))
+	base := channels.NewBaseChannel("whatsapp_native", cfg, bus, cfg.AllowFrom, channels.WithMaxMessageLength(65536), channels.WithGroupTrigger(cfg.GroupTrigger))
 	if storePath == "" {
 		storePath = "whatsapp"
 	}
@@ -344,8 +344,10 @@ func (c *WhatsAppNativeChannel) handleIncoming(evt *events.Message) {
 	if evt.Message == nil {
 		return
 	}
-	senderID := evt.Info.Sender.String()
+	senderJID := evt.Info.Sender
+	senderID := senderJID.String()
 	chatID := evt.Info.Chat.String()
+
 	content := evt.Message.GetConversation()
 	if content == "" && evt.Message.ExtendedTextMessage != nil {
 		content = evt.Message.ExtendedTextMessage.GetText()
@@ -377,15 +379,40 @@ func (c *WhatsAppNativeChannel) handleIncoming(evt *events.Message) {
 	}
 	peer := bus.Peer{Kind: peerKind, ID: chatID}
 	messageID := evt.Info.ID
+	// Resolve the sender to a phone number for consistent allow_from matching.
+	// In direct messages senderJID is a phone JID (33663077168@s.whatsapp.net),
+	// but in groups it's often a LID (26676109021202@lid). Resolve LID → phone
+	// so allow_from can always use plain phone numbers.
+	platformID := senderJID.User
+	if senderJID.Server == "lid" || senderJID.Server == "hosted.lid" {
+		if pn, err := c.resolvePhoneFromLID(senderJID); err == nil && pn != "" {
+			logger.DebugCF("whatsapp", "Resolved LID to phone", map[string]any{"lid": senderJID.User, "phone": pn})
+			platformID = pn
+		} else {
+			logger.WarnCF("whatsapp", "Could not resolve LID to phone, using raw LID", map[string]any{"lid": senderJID.User, "error": err})
+		}
+	}
+
 	sender := bus.SenderInfo{
 		Platform:    "whatsapp",
-		PlatformID:  senderID,
+		PlatformID:  platformID,
 		CanonicalID: identity.BuildCanonicalID("whatsapp", senderID),
 		DisplayName: evt.Info.PushName,
 	}
 
 	if !c.IsAllowedSender(sender) {
+		logger.DebugCF("whatsapp", "Sender not allowed", map[string]any{"platform_id": platformID, "sender_id": senderID})
 		return
+	}
+
+	// Group trigger filtering
+	if peerKind == "group" {
+		isMentioned, strippedContent := c.checkSelfMention(evt, content)
+		respond, finalContent := c.ShouldRespondInGroup(isMentioned, strippedContent)
+		if !respond {
+			return
+		}
+		content = finalContent
 	}
 
 	logger.DebugCF(
@@ -394,6 +421,77 @@ func (c *WhatsAppNativeChannel) handleIncoming(evt *events.Message) {
 		map[string]any{"sender_id": senderID, "content_preview": utils.Truncate(content, 50)},
 	)
 	c.HandleMessage(c.runCtx, peer, messageID, senderID, chatID, content, mediaPaths, metadata, sender)
+}
+
+// resolvePhoneFromLID looks up the phone number for a LID using
+// whatsmeow's local LID→PN mapping table.
+func (c *WhatsAppNativeChannel) resolvePhoneFromLID(lid types.JID) (string, error) {
+	c.mu.Lock()
+	client := c.client
+	c.mu.Unlock()
+	if client == nil || client.Store.LIDs == nil {
+		return "", fmt.Errorf("no client or LID store")
+	}
+	pnJID, err := client.Store.LIDs.GetPNForLID(c.runCtx, lid)
+	if err != nil {
+		return "", err
+	}
+	if pnJID.User == "" {
+		return "", fmt.Errorf("no phone number for LID %s", lid)
+	}
+	return pnJID.User, nil
+}
+
+// checkSelfMention checks whether the current WhatsApp account is @mentioned
+// in the message and strips the @mention text from content if so.
+// It compares against both the phone-number JID and the LID, because
+// WhatsApp mentions may use either format depending on the sender's client.
+func (c *WhatsAppNativeChannel) checkSelfMention(evt *events.Message, content string) (mentioned bool, cleaned string) {
+	c.mu.Lock()
+	client := c.client
+	c.mu.Unlock()
+	if client == nil {
+		return false, content
+	}
+	ownJID := client.Store.ID
+	if ownJID == nil {
+		return false, content
+	}
+
+	var mentionedJIDs []string
+	if ext := evt.Message.GetExtendedTextMessage(); ext != nil {
+		if ci := ext.GetContextInfo(); ci != nil {
+			mentionedJIDs = ci.GetMentionedJID()
+		}
+	}
+	if len(mentionedJIDs) == 0 {
+		return false, content
+	}
+
+	ownLID := client.Store.LID
+	ownUsers := []string{ownJID.User}
+	if ownLID.User != "" {
+		ownUsers = append(ownUsers, ownLID.User)
+	}
+
+	for _, jid := range mentionedJIDs {
+		parsed, err := types.ParseJID(jid)
+		if err != nil {
+			continue
+		}
+		for _, own := range ownUsers {
+			if parsed.User == own {
+				mentioned = true
+				// WhatsApp embeds mentions as @<user> in the text body
+				content = strings.ReplaceAll(content, "@"+parsed.User, "")
+				break
+			}
+		}
+	}
+	if mentioned {
+		content = strings.TrimSpace(content)
+	}
+	return mentioned, content
 }
 
 func (c *WhatsAppNativeChannel) Send(ctx context.Context, msg bus.OutboundMessage) error {
