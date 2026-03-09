@@ -200,6 +200,7 @@ export function ModelsPage() {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onSaved={fetchModels}
+        existingModelNames={models.map((model) => model.model_name)}
       />
 
       <DeleteModelDialog

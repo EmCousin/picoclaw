@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { addModel, setDefaultModel } from "@/api/models"
+import { maskedSecretPlaceholder } from "@/components/secret-placeholder"
 import {
   AdvancedSection,
   Field,
@@ -54,9 +55,15 @@ interface AddModelSheetProps {
   open: boolean
   onClose: () => void
   onSaved: () => void
+  existingModelNames: string[]
 }
 
-export function AddModelSheet({ open, onClose, onSaved }: AddModelSheetProps) {
+export function AddModelSheet({
+  open,
+  onClose,
+  onSaved,
+  existingModelNames,
+}: AddModelSheetProps) {
   const { t } = useTranslation()
   const [form, setForm] = useState<AddForm>(EMPTY_ADD_FORM)
   const [saving, setSaving] = useState(false)
@@ -65,6 +72,10 @@ export function AddModelSheet({ open, onClose, onSaved }: AddModelSheetProps) {
     Partial<Record<keyof AddForm, string>>
   >({})
   const [serverError, setServerError] = useState("")
+  const apiKeyPlaceholder = maskedSecretPlaceholder(
+    form.apiKey,
+    t("models.field.apiKeyPlaceholder"),
+  )
 
   useEffect(() => {
     if (open) {
@@ -77,7 +88,12 @@ export function AddModelSheet({ open, onClose, onSaved }: AddModelSheetProps) {
 
   const validate = (): boolean => {
     const errors: Partial<Record<keyof AddForm, string>> = {}
-    if (!form.modelName.trim()) errors.modelName = t("models.add.errorRequired")
+    const modelName = form.modelName.trim()
+    if (!modelName) {
+      errors.modelName = t("models.add.errorRequired")
+    } else if (existingModelNames.some((name) => name.trim() === modelName)) {
+      errors.modelName = t("models.add.errorDuplicateModelName")
+    }
     if (!form.model.trim()) errors.model = t("models.add.errorRequired")
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
@@ -178,7 +194,7 @@ export function AddModelSheet({ open, onClose, onSaved }: AddModelSheetProps) {
               <KeyInput
                 value={form.apiKey}
                 onChange={(v) => setForm((f) => ({ ...f, apiKey: v }))}
-                placeholder={t("models.field.apiKeyPlaceholder")}
+                placeholder={apiKeyPlaceholder}
               />
             </Field>
 

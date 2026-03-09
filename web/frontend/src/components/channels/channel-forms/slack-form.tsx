@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 
 import type { ChannelConfig } from "@/api/channels"
-import { maskedSecretPlaceholder } from "@/components/channels/channel-forms/secret-placeholder"
+import { maskedSecretPlaceholder } from "@/components/secret-placeholder"
 import { Field, KeyInput } from "@/components/shared-form"
 import { Input } from "@/components/ui/input"
 

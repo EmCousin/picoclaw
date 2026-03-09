@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { type ModelInfo, setDefaultModel, updateModel } from "@/api/models"
+import { maskedSecretPlaceholder } from "@/components/secret-placeholder"
 import {
   AdvancedSection,
   Field,
@@ -122,6 +123,12 @@ export function EditModelSheet({
   }
 
   const isOAuth = model?.auth_method === "oauth"
+  const apiKeyPlaceholder = model?.configured
+    ? maskedSecretPlaceholder(
+        model.api_key,
+        t("models.field.apiKeyPlaceholderSet"),
+      )
+    : t("models.field.apiKeyPlaceholder")
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -150,11 +157,7 @@ export function EditModelSheet({
                 <KeyInput
                   value={form.apiKey}
                   onChange={(v) => setForm((f) => ({ ...f, apiKey: v }))}
-                  placeholder={
-                    model?.configured
-                      ? t("models.field.apiKeyPlaceholderSet")
-                      : t("models.field.apiKeyPlaceholder")
-                  }
+                  placeholder={apiKeyPlaceholder}
                 />
               </Field>
             )}

@@ -1,3 +1,5 @@
+import { refreshGatewayState } from "@/store/gateway"
+
 // API client for model list management.
 
 export interface ModelInfo {
@@ -76,11 +78,14 @@ export async function deleteModel(index: number): Promise<ModelActionResponse> {
 export async function setDefaultModel(
   modelName: string,
 ): Promise<ModelActionResponse> {
-  return request<ModelActionResponse>("/api/models/default", {
+  const response = await request<ModelActionResponse>("/api/models/default", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model_name: modelName }),
   })
+
+  void refreshGatewayState()
+  return response
 }
 
 export type { ModelsListResponse, ModelActionResponse }

@@ -79,7 +79,7 @@ export function ProviderIcon({
       <img
         src={iconUrl}
         alt={`${providerLabel} logo`}
-        className="size-full object-contain drop-shadow-[0_0_1px_rgba(0,0,0,0.45)]"
+        className="size-full object-contain"
         loading="lazy"
         referrerPolicy="no-referrer"
         onError={() => {

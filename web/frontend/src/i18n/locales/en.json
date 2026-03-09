@@ -178,6 +178,7 @@
       "modelIdPlaceholder": "e.g. openai/gpt-4o",
       "modelIdHint": "Format: protocol/model-id. Supported: openai, anthropic, gemini, groq, …",
       "errorRequired": "This field is required.",
+      "errorDuplicateModelName": "Model alias already exists. Please use a different name.",
       "saveError": "Failed to add model",
       "confirm": "Add Model"
     },
