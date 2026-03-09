@@ -107,9 +107,26 @@ func lookupModelConfig(cfg *config.Config, modelName string) *config.ModelConfig
 }
 
 func isGatewayProcessAliveLocked() bool {
-	return gateway.cmd != nil &&
-		gateway.cmd.Process != nil &&
-		gateway.cmd.Process.Signal(syscall.Signal(0)) == nil
+	return isCmdProcessAliveLocked(gateway.cmd)
+}
+
+func isCmdProcessAliveLocked(cmd *exec.Cmd) bool {
+	if cmd == nil || cmd.Process == nil {
+		return false
+	}
+
+	// Wait() sets ProcessState when the process exits; use it when available.
+	if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
+		return false
+	}
+
+	// Windows does not support Signal(0) probing. If we still own cmd and it
+	// has not reported exit, treat it as alive.
+	if runtime.GOOS == "windows" {
+		return true
+	}
+
+	return cmd.Process.Signal(syscall.Signal(0)) == nil
 }
 
 func (h *Handler) startGatewayLocked() (int, error) {
@@ -308,7 +325,7 @@ func (h *Handler) handleGatewayRestart(w http.ResponseWriter, r *http.Request) {
 
 	// Stop existing process if running
 	if gateway.cmd != nil && gateway.cmd.Process != nil {
-		if err := gateway.cmd.Process.Signal(syscall.Signal(0)); err == nil {
+		if isCmdProcessAliveLocked(gateway.cmd) {
 			// Process is alive, send SIGTERM
 			if runtime.GOOS == "windows" {
 				gateway.cmd.Process.Kill()
@@ -338,12 +355,9 @@ func (h *Handler) handleGatewayStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Check process state
 	gateway.mu.Lock()
-	processAlive := false
-	if gateway.cmd != nil && gateway.cmd.Process != nil {
-		if err := gateway.cmd.Process.Signal(syscall.Signal(0)); err == nil {
-			processAlive = true
-			data["pid"] = gateway.cmd.Process.Pid
-		}
+	processAlive := isGatewayProcessAliveLocked()
+	if processAlive {
+		data["pid"] = gateway.cmd.Process.Pid
 	}
 	gateway.mu.Unlock()
 
@@ -495,11 +509,9 @@ func (h *Handler) currentGatewayStatus() string {
 	data := map[string]any{
 		"gateway_status": "stopped",
 	}
-	if gateway.cmd != nil && gateway.cmd.Process != nil {
-		if err := gateway.cmd.Process.Signal(syscall.Signal(0)); err == nil {
-			data["gateway_status"] = "running"
-			data["pid"] = gateway.cmd.Process.Pid
-		}
+	if isGatewayProcessAliveLocked() {
+		data["gateway_status"] = "running"
+		data["pid"] = gateway.cmd.Process.Pid
 	}
 
 	ready, reason, readyErr := h.gatewayStartReady()
