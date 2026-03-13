@@ -1,9 +1,9 @@
 # ============================================================
 # Stage 1: Build the picoclaw binary
 # ============================================================
-FROM golang:1.25-alpine AS builder
+FROM golang:1.25-bookworm AS builder
 
-RUN apk add --no-cache git make
+RUN apt-get update && apt-get install -y git make
 
 WORKDIR /src
 
@@ -21,18 +21,34 @@ RUN make generate && \
     -o build/picoclaw ./cmd/picoclaw
 
 # ============================================================
-# Stage 2: Minimal runtime image
+# Stage 2: Runtime image with glibc support
 # ============================================================
-FROM alpine:3.23
+FROM node:20-bookworm-slim
 
-RUN apk add --no-cache ca-certificates tzdata curl nodejs npm chromium gcompat
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    tzdata \
+    curl \
+    chromium \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust via rustup (system rustc is too old for RTK)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install RTK (Rust Token Killer) from GitHub
+RUN cargo install --git https://github.com/rtk-ai/rtk
 
 # Install agent-browser CLI globally
 RUN npm install -g agent-browser
 
 # Set Chromium path for Playwright/agent-browser
-ENV CHROME_PATH=/usr/bin/chromium-browser
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV CHROME_PATH=/usr/bin/chromium
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
+
+# Add cargo bin to PATH for RTK
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
@@ -41,13 +57,20 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # Copy binary
 COPY --from=builder /src/build/picoclaw /usr/local/bin/picoclaw
 
-# Create non-root user
-RUN addgroup -g 1000 picoclaw && \
-    adduser -D -u 1000 -G picoclaw picoclaw && \
+# Create non-root user (use different UID/GID since 1000 exists)
+RUN groupadd -g 1001 picoclaw && \
+    useradd -u 1001 -g picoclaw -m -s /bin/bash picoclaw && \
     mkdir -p /home/picoclaw/.picoclaw && \
     chown -R picoclaw:picoclaw /home/picoclaw/.picoclaw
 
+# Install Rust toolchain and RTK as picoclaw user
 USER picoclaw
+ENV PATH="/home/picoclaw/.cargo/bin:${PATH}"
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+    cargo install --git https://github.com/rtk-ai/rtk
+
+# Install Playwright browsers as picoclaw user
+RUN npx playwright install chromium
 
 # Run onboard to create initial directories and config
 RUN /usr/local/bin/picoclaw onboard

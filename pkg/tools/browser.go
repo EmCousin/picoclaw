@@ -171,8 +171,11 @@ func (t *BrowserTool) Execute(ctx context.Context, args map[string]interface{}) 
 func (t *BrowserTool) buildArgs(command string) []string {
 	var globalArgs []string
 
-	// Add CDP port
-	globalArgs = append(globalArgs, "--cdp", fmt.Sprintf("%d", t.cdpPort))
+	// Add CDP port only if explicitly configured (non-default)
+	// Default 9222 means "try to connect to existing browser", which fails if none is running
+	if t.cdpPort != 0 && t.cdpPort != 9222 {
+		globalArgs = append(globalArgs, "--cdp", fmt.Sprintf("%d", t.cdpPort))
+	}
 
 	// Add session flag if configured
 	if t.session != "" {
