@@ -81,6 +81,16 @@ func (t *MessageTool) Execute(ctx context.Context, args map[string]any) *ToolRes
 		return &ToolResult{ForLLM: "No target channel/chat specified", IsError: true}
 	}
 
+	// During heartbeat checks, suppress direct message sending to avoid
+	// spamming users on every heartbeat cycle. The heartbeat result is
+	// handled by the heartbeat service itself.
+	if IsHeartbeatContext(ctx) {
+		return &ToolResult{
+			ForLLM: fmt.Sprintf("Message suppressed during heartbeat (would send to %s:%s): %s", channel, chatID, content),
+			Silent: true,
+		}
+	}
+
 	if t.sendCallback == nil {
 		return &ToolResult{ForLLM: "Message sending not configured", IsError: true}
 	}

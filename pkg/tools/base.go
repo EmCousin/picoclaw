@@ -21,8 +21,9 @@ type Tool interface {
 type toolCtxKey struct{ name string }
 
 var (
-	ctxKeyChannel = &toolCtxKey{"channel"}
-	ctxKeyChatID  = &toolCtxKey{"chatID"}
+	ctxKeyChannel   = &toolCtxKey{"channel"}
+	ctxKeyChatID    = &toolCtxKey{"chatID"}
+	ctxKeyHeartbeat = &toolCtxKey{"heartbeat"}
 )
 
 // WithToolContext returns a child context carrying channel and chatID.
@@ -41,6 +42,19 @@ func ToolChannel(ctx context.Context) string {
 // ToolChatID extracts the chatID from ctx, or "" if unset.
 func ToolChatID(ctx context.Context) string {
 	v, _ := ctx.Value(ctxKeyChatID).(string)
+	return v
+}
+
+// WithHeartbeatContext returns a child context marked as a heartbeat execution.
+// Tools that send messages directly (e.g., message tool) should check this
+// and suppress sending to avoid spamming users on every heartbeat check.
+func WithHeartbeatContext(ctx context.Context) context.Context {
+	return context.WithValue(ctx, ctxKeyHeartbeat, true)
+}
+
+// IsHeartbeatContext returns true if the context is a heartbeat execution.
+func IsHeartbeatContext(ctx context.Context) bool {
+	v, _ := ctx.Value(ctxKeyHeartbeat).(bool)
 	return v
 }
 

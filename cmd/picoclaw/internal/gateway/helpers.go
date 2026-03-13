@@ -100,11 +100,10 @@ func gatewayCmd(debug bool) error {
 		cfg.Heartbeat.Enabled,
 	)
 	heartbeatService.SetBus(msgBus)
-	heartbeatService.SetHandler(func(prompt, channel, chatID string) *tools.ToolResult {
-		// Use cli:direct as fallback if no valid channel
-		if channel == "" || chatID == "" {
-			channel, chatID = "cli", "direct"
-		}
+	heartbeatService.SetHandler(func(prompt, _, _ string) *tools.ToolResult {
+		// Always use cli:direct for heartbeat to prevent any messages being
+		// sent to external channels (WhatsApp, Telegram, etc.) during heartbeat.
+		channel, chatID := "cli", "direct"
 		// Use ProcessHeartbeat - no session history, each heartbeat is independent
 		var response string
 		response, err = agentLoop.ProcessHeartbeat(context.Background(), prompt, channel, chatID)

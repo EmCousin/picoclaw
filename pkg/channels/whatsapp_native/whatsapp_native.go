@@ -344,6 +344,12 @@ func (c *WhatsAppNativeChannel) handleIncoming(evt *events.Message) {
 	if evt.Message == nil {
 		return
 	}
+
+	// Skip messages sent by ourselves (echoed back by WhatsApp)
+	if evt.Info.IsFromMe {
+		return
+	}
+
 	senderJID := evt.Info.Sender
 	senderID := senderJID.String()
 	chatID := evt.Info.Chat.String()
