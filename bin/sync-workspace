@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# Sync workspace files from repo to Docker container
+# Repo is the source of truth
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CONTAINER_NAME="picoclaw-gateway"
+
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+echo -e "${BLUE}🔄 Syncing workspace from repo to container...${NC}"
+
+# Check if container is running
+if ! docker ps --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
+    echo -e "${YELLOW}⚠${NC} Container $CONTAINER_NAME is not running"
+    echo "Start it first with: ./bin/start"
+    exit 1
+fi
+
+# Sync workspace files
+echo -e "${BLUE}📁 Syncing workspace files...${NC}"
+docker cp "$PROJECT_ROOT/workspace/AGENTS.md" "$CONTAINER_NAME:/home/picoclaw/.picoclaw/workspace/"
+docker cp "$PROJECT_ROOT/workspace/IDENTITY.md" "$CONTAINER_NAME:/home/picoclaw/.picoclaw/workspace/"
+docker cp "$PROJECT_ROOT/workspace/SOUL.md" "$CONTAINER_NAME:/home/picoclaw/.picoclaw/workspace/"
+docker cp "$PROJECT_ROOT/workspace/USER.md" "$CONTAINER_NAME:/home/picoclaw/.picoclaw/workspace/"
+
+# Sync skills
+echo -e "${BLUE}🧠 Syncing skills...${NC}"
+docker cp "$PROJECT_ROOT/workspace/skills/" "$CONTAINER_NAME:/home/picoclaw/.picoclaw/workspace/"
+
+# Fix ownership
+docker exec "$CONTAINER_NAME" chown -R picoclaw:picoclaw /home/picoclaw/.picoclaw/workspace/
+
+echo -e "${GREEN}✅ Workspace synced successfully!${NC}"
+echo ""
+echo -e "${YELLOW}⚠${NC} Restart the container to apply changes:"
+echo "  ./bin/restart"
