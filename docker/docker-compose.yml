@@ -18,7 +18,7 @@ services:
 
   # ─────────────────────────────────────────────
   # PicoClaw Gateway (Long-running Bot)
-  #   docker compose -f docker/docker-compose.yml up picoclaw-gateway
+  #   docker compose -f docker/docker-compose.yml --profile gateway up
   # ─────────────────────────────────────────────
   picoclaw-gateway:
     build:
@@ -36,3 +36,21 @@ services:
     command: ["gateway"]
     volumes:
       - ./data:/home/picoclaw/.picoclaw
+
+  # ─────────────────────────────────────────────
+  # PicoClaw Launcher (Web Console + Gateway)
+  #   docker compose -f docker/docker-compose.yml --profile launcher up
+  # ─────────────────────────────────────────────
+  picoclaw-launcher:
+    image: docker.io/sipeed/picoclaw:launcher
+    container_name: picoclaw-launcher
+    restart: on-failure
+    profiles:
+      - launcher
+    environment:
+      - PICOCLAW_GATEWAY_HOST=0.0.0.0
+    ports:
+      - "127.0.0.1:18800:18800"
+      - "127.0.0.1:18790:18790"
+    volumes:
+      - ./data:/root/.picoclaw
