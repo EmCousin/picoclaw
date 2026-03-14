@@ -163,53 +163,134 @@ make install
 
 **Raspberry Pi Zero 2 W:** Use the binary that matches your OS: 32-bit Raspberry Pi OS → `make build-linux-arm` (output: `build/picoclaw-linux-arm`); 64-bit → `make build-linux-arm64` (output: `build/picoclaw-linux-arm64`). Or run `make build-pi-zero` to build both.
 
-## 🐳 Docker Compose
+## 🐳 Docker Quick Start (Recommended)
 
-You can also run PicoClaw using Docker Compose without installing anything locally.
+The fastest way to run PicoClaw with full capabilities including browser automation and RTK token optimization.
+
+### Prerequisites
+
+- Docker installed on your system
+- Git (to clone the repo)
+
+### Setup
 
 ```bash
 # 1. Clone this repo
 git clone https://github.com/sipeed/picoclaw.git
 cd picoclaw
 
-# 2. First run — auto-generates docker/data/config.json then exits
-docker compose -f docker/docker-compose.yml --profile gateway up
-# The container prints "First-run setup complete." and stops.
+# 2. Start PicoClaw (builds image and starts container)
+./bin/start
 
-# 3. Set your API keys
-vim docker/data/config.json   # Set provider API keys, bot tokens, etc.
+# 3. Set your API keys (in another terminal)
+vim docker/data/config.json   # Add your OpenRouter/Anthropic API key
 
-# 4. Start
-docker compose -f docker/docker-compose.yml --profile gateway up -d
+# 4. Restart to apply config
+./bin/restart
 ```
 
-> [!TIP]
-> **Docker Users**: By default, the Gateway listens on `127.0.0.1` which is not accessible from the host. If you need to access the health endpoints or expose ports, set `PICOCLAW_GATEWAY_HOST=0.0.0.0` in your environment or update `config.json`.
+### What's Included
+
+✅ **Browser Automation** - Chromium + Playwright for web interaction  
+✅ **RTK Token Optimizer** - Reduces token usage by 60-90%  
+✅ **All Channels** - Telegram, WhatsApp, Slack ready to configure  
+✅ **Auto-restart** - Container restarts automatically if it crashes  
+
+### Management Commands
 
 ```bash
-# 5. Check logs
-docker compose -f docker/docker-compose.yml logs -f picoclaw-gateway
+# Start PicoClaw
+./bin/start
 
-# 6. Stop
-docker compose -f docker/docker-compose.yml --profile gateway down
+# Stop PicoClaw
+./bin/stop
+
+# Restart PicoClaw
+./bin/restart
+
+# Sync workspace changes (repo → container)
+./bin/sync-workspace
+
+# View logs
+docker logs -f picoclaw-gateway
+
+# Shell access
+docker exec -it picoclaw-gateway /bin/bash
 ```
 
-### Agent Mode (One-shot)
+### Agent Mode (One-shot Tasks)
 
 ```bash
-# Ask a question
-docker compose -f docker/docker-compose.yml run --rm picoclaw-agent -m "What is 2+2?"
+# Run a single command
+docker run --rm \
+  -v ./docker/data:/home/picoclaw/.picoclaw \
+  -e PICOCLAW_TOOLS_BROWSER_ENABLED=true \
+  picoclaw:debian agent -m "What is 2+2?"
 
 # Interactive mode
-docker compose -f docker/docker-compose.yml run --rm picoclaw-agent
+docker run --rm -it \
+  -v ./docker/data:/home/picoclaw/.picoclaw \
+  -e PICOCLAW_TOOLS_BROWSER_ENABLED=true \
+  picoclaw:debian agent
 ```
 
-### Update
+### Advanced: Docker Compose (Legacy)
+
+If you prefer docker-compose:
 
 ```bash
-docker compose -f docker/docker-compose.yml pull
+# Start
 docker compose -f docker/docker-compose.yml --profile gateway up -d
+
+# Stop
+docker compose -f docker/docker-compose.yml --profile gateway down
+
+# View logs
+docker compose -f docker/docker-compose.yml logs -f
 ```
+
+## 🛠️ Tools & Capabilities
+
+PicoClaw comes with powerful built-in tools for autonomous operation.
+
+### 🌐 Browser Automation
+
+The Docker image includes full browser automation capabilities via Playwright and `agent-browser`:
+
+```bash
+# Enable browser tool (enabled by default in Docker)
+export PICOCLAW_TOOLS_BROWSER_ENABLED=true
+
+# PicoClaw can now:
+# - Navigate to websites
+# - Click buttons and fill forms
+# - Take screenshots
+# - Extract page content
+# - Sign up for services autonomously
+```
+
+**Example tasks:**
+- "Open https://example.com and get the page title"
+- "Sign up for Fizzy at https://app.fizzy.do/..."
+- "Take a screenshot of https://news.ycombinator.com"
+- "Check my HEY email for new messages"
+
+### 🔪 RTK Token Optimization
+
+The Docker image includes RTK (Rust Token Killer) which reduces token consumption by 60-90%:
+
+```bash
+# RTK is automatically available in the container
+rtk git status      # 80% fewer tokens than raw git status
+rtk read file.rs    # 70% fewer tokens than cat
+rtk test cargo test # 90% fewer tokens, shows failures only
+rtk ls .           # 80% fewer tokens than ls -la
+```
+
+**Benefits:**
+- Lower API costs
+- Faster LLM responses
+- More context fits in window
 
 ### 🚀 Quick Start
 
@@ -770,13 +851,17 @@ PicoClaw stores data in your configured workspace (default: `~/.picoclaw/workspa
 ├── state/            # Persistent state (last channel, etc.)
 ├── cron/             # Scheduled jobs database
 ├── skills/           # Custom skills
-├── AGENTS.md         # Agent behavior guide
+│   └── rtk/          # RTK token optimization skill
+├── AGENTS.md         # Agent behavior guide (see repo root AGENTS.md)
 ├── HEARTBEAT.md      # Periodic task prompts (checked every 30 min)
 ├── IDENTITY.md       # Agent identity
 ├── SOUL.md           # Agent soul
 ├── TOOLS.md          # Tool descriptions
 └── USER.md           # User preferences
 ```
+
+> [!IMPORTANT]
+> **Development Workflow**: When using Docker, the repository (`workspace/`) is the source of truth. Edit files in the repo, then sync to the container with `./bin/sync-workspace`. See `AGENTS.md` in the repo root for detailed workflow instructions.
 
 ### Skill Sources
 
@@ -1478,6 +1563,73 @@ Some providers (like Zhipu) have content filtering. Try rephrasing your query or
 ### Telegram bot says "Conflict: terminated by other getUpdates"
 
 This happens when another instance of the bot is running. Make sure only one `picoclaw gateway` is running at a time.
+
+---
+
+## 🔧 Development Workflow
+
+When using Docker, follow this workflow to keep the repo as the source of truth:
+
+### Source of Truth
+
+**The GitHub repository is the SOURCE OF TRUTH.** All changes must be made to the repo FIRST, then synced to Docker containers.
+
+### Quick Commands
+
+```bash
+# Edit files in repo
+vim workspace/AGENTS.md
+vim workspace/IDENTITY.md
+
+# Sync to container
+./bin/sync-workspace
+
+# Restart to apply
+./bin/restart
+
+# Or full rebuild
+./bin/stop && docker build -f docker/Dockerfile.debian -t picoclaw:debian . && ./bin/start
+```
+
+### Directory Mapping
+
+| Repo Location | Container Location | Purpose |
+|--------------|---------------------|---------|
+| `workspace/` | `/home/picoclaw/.picoclaw/workspace/` | Agent config, skills, memory |
+| `docker/Dockerfile.debian` | Built into image | Container setup with RTK, browser tools |
+| `bin/start`, `bin/stop`, `bin/restart`, `bin/sync-workspace` | Not in container | Management scripts |
+| `docker/data/config.json` | `/home/picoclaw/.picoclaw/config.json` | Runtime config (API keys, models) |
+
+### What to Commit
+
+**Always commit to repo:**
+- ✅ `workspace/AGENTS.md` - Agent instructions
+- ✅ `workspace/IDENTITY.md` - Agent identity  
+- ✅ `workspace/skills/*` - Custom skills
+- ✅ `docker/Dockerfile.debian` - Container setup
+- ✅ `bin/*` - Management scripts
+- ✅ Code changes (`pkg/`, `cmd/`, etc.)
+
+**DON'T commit:**
+- ❌ `docker/data/config.json` - Contains API keys
+- ❌ `docker/data/workspace/cron/` - Runtime cron jobs
+- ❌ `docker/data/workspace/memory/` - Runtime memory
+- ❌ `docker/data/workspace/state/` - Runtime state
+
+### Emergency Container → Repo Sync
+
+If changes were made directly in the container:
+
+```bash
+# Copy from container to repo
+docker cp picoclaw-gateway:/home/picoclaw/.picoclaw/workspace/AGENTS.md workspace/
+docker cp picoclaw-gateway:/home/picoclaw/.picoclaw/workspace/IDENTITY.md workspace/
+docker cp -r picoclaw-gateway:/home/picoclaw/.picoclaw/workspace/skills/ workspace/
+
+# Commit
+git add workspace/
+git commit -m "Sync workspace changes from container"
+```
 
 ---
 
