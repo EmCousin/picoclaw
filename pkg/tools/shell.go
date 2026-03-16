@@ -350,17 +350,33 @@ func (t *ExecTool) guardCommand(command, cwd string) string {
 		}
 	}
 
+	// Check if command matches allow patterns (custom or default)
+	isExplicitlyAllowed := false
 	if len(t.allowPatterns) > 0 {
-		allowed := false
 		for _, pattern := range t.allowPatterns {
 			if pattern.MatchString(lower) {
-				allowed = true
+				isExplicitlyAllowed = true
 				break
 			}
 		}
-		if !allowed {
+		if !isExplicitlyAllowed {
 			return "Command blocked by safety guard (not in allowlist)"
 		}
+	}
+	
+	// Also check custom allow patterns from config
+	for _, pattern := range t.customAllowPatterns {
+		if pattern.MatchString(lower) {
+			isExplicitlyAllowed = true
+			break
+		}
+	}
+
+	// Skip workspace restriction check for explicitly allowed commands
+	// This allows commands like "gh pr list --repo owner/repo" to work
+	// even though "owner/repo" looks like a path
+	if isExplicitlyAllowed {
+		return ""
 	}
 
 	if t.restrictToWorkspace {
