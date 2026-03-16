@@ -30,6 +30,7 @@ docker cp "$PROJECT_ROOT/workspace/AGENTS.md" "$CONTAINER_NAME:/home/picoclaw/.p
 docker cp "$PROJECT_ROOT/workspace/IDENTITY.md" "$CONTAINER_NAME:/home/picoclaw/.picoclaw/workspace/"
 docker cp "$PROJECT_ROOT/workspace/SOUL.md" "$CONTAINER_NAME:/home/picoclaw/.picoclaw/workspace/"
 docker cp "$PROJECT_ROOT/workspace/USER.md" "$CONTAINER_NAME:/home/picoclaw/.picoclaw/workspace/"
+docker cp "$PROJECT_ROOT/workspace/subagent-system-prompt.md" "$CONTAINER_NAME:/home/picoclaw/.picoclaw/workspace/"
 
 # Sync skills
 echo -e "${BLUE}🧠 Syncing skills...${NC}"
