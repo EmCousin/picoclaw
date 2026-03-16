@@ -88,6 +88,31 @@ rtk docker ps               # Compact container list
 |------|----------|------------|
 | Read file | `cat file.rs` | `rtk read file.rs` |
 | List directory | `ls -la` | `rtk ls .` |
+
+## Subagents and Shell Execution
+
+When spawning subagents or executing shell commands:
+
+### ✅ CORRECT - Use the `exec` tool:
+```
+exec({"command": "gh auth status"})
+exec({"command": "gh pr merge 603 --repo EmCousin/pkp --squash"})
+exec({"command": "git status"})
+```
+
+### ❌ WRONG - These tools DO NOT EXIST:
+```
+bash({"command": "..."})        # DOES NOT EXIST
+shell({"command": "..."})       # DOES NOT EXIST  
+subprocess({"command": "..."})  # DOES NOT EXIST
+execute({"command": "..."})     # DOES NOT EXIST
+```
+
+### Important Notes:
+- **ONLY** the `exec` tool is available for shell commands
+- `gh` commands are whitelisted and allowed even for external repos
+- Always use `exec` tool when you need to run shell commands in subagents
+- When spawning a subagent to do GitHub operations, tell it explicitly to use the `exec` tool
 | Git status | `git status` | `rtk git status` |
 | Git diff | `git diff` | `rtk git diff` |
 | Git log | `git log` | `rtk git log` |
@@ -128,6 +153,109 @@ rtk gain --graph      # Visual graph
 ```
 
 **Remember: RTK FIRST, ALWAYS.**
+
+## Autonomous Operation Guidelines
+
+### When to Act Autonomously vs Ask for Confirmation
+
+**Act autonomously (no confirmation needed) for:**
+- Checking status (PRs, emails, issues)
+- Reading files and gathering information
+- Listing items (PR list, email list, directory contents)
+- Approving obvious safe actions (screening known senders into Imbox)
+
+**ALWAYS ask for confirmation before:**
+- Merging PRs (destructive, changes code)
+- Rejecting emails/moving to spam (could lose important messages)
+- Sending emails/replies (irreversible communication)
+- Deleting files or data
+- Any operation that changes external state
+
+### Confirmation Message Format
+
+When confirmation is required, use this format:
+```
+"I'm about to [ACTION]:
+- [ITEM 1]: [DESCRIPTION]
+- [ITEM 2]: [DESCRIPTION]
+
+[CONSEQUENCE if applicable]
+
+Confirm? (yes/no)"
+```
+
+**Example:**
+```
+"I'm about to merge 2 PRs:
+- #603: Security update for trix
+- #601: Bump ajv dependency
+
+These changes will be merged into the main branch.
+
+Confirm? (yes/no)"
+```
+
+### Using Skills for Autonomous Workflows
+
+**When user gives a high-level goal:**
+1. Load the relevant skill (github, hey, etc.)
+2. Follow the workflow described in the skill
+3. Use MEMORY.md for credentials and context
+4. Execute each step using the appropriate tool
+5. Ask for confirmation when required by the skill
+
+**Example workflow for "Check my PRs":**
+1. Load github skill
+2. Ask "Which repository?" if unclear
+3. Authenticate with GitHub (using token from MEMORY.md)
+4. List PRs using exec tool
+5. Check CI status
+6. Report findings (no confirmation needed for checking)
+
+**Example workflow for "Check my screener":**
+1. Load hey skill
+2. Open HEY in browser
+3. Navigate to Screener
+4. Evaluate each email:
+   - Known sender → Auto-approve
+   - Spam pattern → Auto-reject
+   - Unclear → Ask user
+5. Report actions taken
+
+### Context Detection
+
+**Determine repository from:**
+1. User's message (e.g., "in EmCousin/pkp")
+2. Current working directory (if in a git repo)
+3. Ask user if still unclear
+
+**Determine email importance from:**
+1. Sender in MEMORY.md allowed list
+2. Subject line keywords (urgent, action required)
+3. Whether it's a reply to your email
+
+### Error Handling in Autonomous Mode
+
+**If authentication fails:**
+1. Check credentials in MEMORY.md
+2. Try once more
+3. Report failure and ask user to verify credentials
+
+**If operation fails:**
+1. Capture error message
+2. Report what you were trying to do
+3. Ask user how to proceed
+
+**Example:**
+```
+"I tried to merge PR #603 but got this error:
+'CI checks are failing'
+
+The PR has failing tests. Should I:
+1. Wait and try again later
+2. Report the failing tests to you
+3. Something else?"
+```
 
 ## Principle
 

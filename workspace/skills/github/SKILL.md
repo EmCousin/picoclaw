@@ -1,48 +1,138 @@
 ---
 name: github
-description: "Interact with GitHub using the `gh` CLI. Use `gh issue`, `gh pr`, `gh run`, and `gh api` for issues, PRs, CI runs, and advanced queries."
-metadata: {"nanobot":{"emoji":"🐙","requires":{"bins":["gh"]},"install":[{"id":"brew","kind":"brew","formula":"gh","bins":["gh"],"label":"Install GitHub CLI (brew)"},{"id":"apt","kind":"apt","package":"gh","bins":["gh"],"label":"Install GitHub CLI (apt)"}]}}
+description: "Interact with GitHub using the gh CLI. Handle PRs, issues, and repository operations autonomously. Always ask which repository if unclear from context."
+metadata: {"nanobot":{"emoji":"🐙","requires":{"bins":["gh"]},"install":[]}}
 ---
 
 # GitHub Skill
 
-Use the `gh` CLI to interact with GitHub. Always specify `--repo owner/repo` when not in a git directory, or use URLs directly.
+Interact with GitHub repositories using the `gh` CLI. This skill enables autonomous GitHub operations.
 
-## Pull Requests
+## Prerequisites
 
-Check CI status on a PR:
-```bash
-gh pr checks 55 --repo owner/repo
+- GitHub CLI (`gh`) is pre-installed in the container
+- GitHub token is stored in MEMORY.md
+- Use `exec` tool for all gh commands
+
+## Authentication
+
+Before any GitHub operation, authenticate:
+```
+exec({"command": "echo TOKEN | gh auth login --with-token"})
 ```
 
-List recent workflow runs:
-```bash
-gh run list --repo owner/repo --limit 10
+The token is in MEMORY.md under "Github Account" → "Auth token".
+
+## Autonomous Workflows
+
+### 1. Review Open PRs
+
+**When user says:** "Check my PRs" / "Review open pull requests" / "What PRs need attention?"
+
+**Workflow:**
+1. Ask "Which repository?" if unclear from context or cwd
+2. Authenticate with GitHub
+3. List open PRs: `exec({"command": "gh pr list --repo OWNER/REPO --json number,title,state,author"})`
+4. For each PR, check CI status: `exec({"command": "gh pr checks NUMBER --repo OWNER/REPO"})`
+5. Report summary:
+   - Total open PRs
+   - Which have passing CI
+   - Which have failing CI
+   - Which are ready to merge (passing CI + approved)
+
+### 2. Merge Ready PRs
+
+**When user says:** "Merge my ready PRs" / "Merge PRs that are ready"
+
+**Workflow:**
+1. Ask "Which repository?" if unclear
+2. Authenticate
+3. List PRs with passing CI: `exec({"command": "gh pr list --repo OWNER/REPO --json number,title,mergeStateStatus"})`
+4. Filter to find "clean" PRs (passing CI, no conflicts)
+5. **CONFIRM BEFORE MERGING:**
+   ```
+   "I found N PRs ready to merge:
+   - #XXX: Title
+   - #YYY: Title
+   
+   Merge all of them? (yes/no)"
+   ```
+6. If confirmed, merge each: `exec({"command": "gh pr merge NUMBER --repo OWNER/REPO --squash"})`
+7. Report results
+
+### 3. Handle Security Updates
+
+**When user says:** "Handle security updates" / "Check security PRs"
+
+**Workflow:**
+1. Ask "Which repository?" if unclear
+2. Authenticate
+3. Search for security-related PRs (labels: security, dependabot, depfu)
+4. Check CI status on each
+5. Report:
+   - Security PRs found
+   - Which are ready to merge (passing CI)
+   - Which need attention (failing CI)
+6. **CONFIRM BEFORE MERGING** any security PRs
+
+### 4. View Specific PR
+
+**When user says:** "Show me PR #123" / "What's the status of PR 456?"
+
+**Workflow:**
+1. Ask "Which repository?" if unclear
+2. Authenticate
+3. View PR details: `exec({"command": "gh pr view NUMBER --repo OWNER/REPO"})`
+4. Check CI status: `exec({"command": "gh pr checks NUMBER --repo OWNER/REPO"})`
+5. Show PR description, changes, and CI status
+
+## Confirmation Requirements
+
+**ALWAYS ask for confirmation before:**
+- Merging any PR (destructive operation)
+- Closing PRs
+- Making changes to repository settings
+
+**Format:**
+```
+"I'm about to merge PR #XXX: TITLE
+This will merge the changes into the main branch.
+
+Confirm? (yes/no)"
 ```
 
-View a run and see which steps failed:
-```bash
-gh run view <run-id> --repo owner/repo
-```
+## Error Handling
 
-View logs for failed steps only:
-```bash
-gh run view <run-id> --repo owner/repo --log-failed
-```
+If authentication fails:
+1. Check if token in MEMORY.md is valid
+2. Try re-authenticating
+3. If still failing, report: "GitHub authentication failed. Please check the token in MEMORY.md"
 
-## API for Advanced Queries
+If merge fails:
+1. Check CI status
+2. Check for merge conflicts
+3. Report specific error to user
 
-The `gh api` command is useful for accessing data not available through other subcommands.
+## Context Detection
 
-Get PR with specific fields:
-```bash
-gh api repos/owner/repo/pulls/55 --jq '.title, .state, .user.login'
-```
+**How to determine repository:**
+1. Check if user mentioned repo in message (e.g., "in EmCousin/pkp")
+2. Check current working directory (if in a git repo, use that)
+3. If still unclear, ask: "Which repository? (format: owner/repo)"
 
-## JSON Output
+## Examples
 
-Most commands support `--json` for structured output.  You can use `--jq` to filter:
+**User:** "Check my PRs"
+**Agent:** "Which repository?"
+**User:** "EmCousin/pkp"
+**Agent:** *[Lists PRs with status]*
 
-```bash
-gh issue list --repo owner/repo --json number,title --jq '.[] | "\(.number): \(.title)"'
-```
+**User:** "Merge the ready ones"
+**Agent:** "I found 2 PRs ready to merge:
+- #603: Security update for trix
+- #601: Bump ajv
+
+Merge both? (yes/no)"
+
+**User:** "yes"
+**Agent:** *[Merges PRs and reports success]*
