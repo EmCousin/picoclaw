@@ -120,6 +120,65 @@ If merge fails:
 2. Check current working directory (if in a git repo, use that)
 3. If still unclear, ask: "Which repository? (format: owner/repo)"
 
+### 5. Respond to GitHub Mentions
+
+**When:** Someone mentions @danuclaw in an issue, PR, or comment
+
+**Workflow:**
+1. Authenticate with GitHub
+2. Find the mention using: `exec({"command": "gh api notifications --repo OWNER/REPO --json subject,reason"})`
+3. Read the context (issue/PR where mentioned)
+4. React with 👀 eyes emoji immediately: `exec({"command": "gh api repos/OWNER/REPO/issues/comments/COMMENT_ID/reactions -X POST -f content=eyes"})`
+5. Provide helpful response based on the mention context
+6. Post reply as comment
+
+**Response Guidelines:**
+- If asked a question → Answer helpfully
+- If asked to review → See "Review PR" workflow below
+- If mentioned in passing → Acknowledge with 👀 and brief response
+
+### 6. Review Pull Request
+
+**When:** Assigned as reviewer on a PR OR asked to review a specific PR
+
+**Workflow:**
+1. Authenticate with GitHub
+2. View PR details: `exec({"command": "gh pr view NUMBER --repo OWNER/REPO"})`
+3. Check CI status: `exec({"command": "gh pr checks NUMBER --repo OWNER/REPO"})`
+4. Get PR diff: `exec({"command": "gh pr diff NUMBER --repo OWNER/REPO"})`
+5. Review the code changes thoroughly
+6. Post review comments using:
+   ```
+   exec({"command": "gh api repos/OWNER/REPO/pulls/NUMBER/reviews -X POST -f body='REVIEW_SUMMARY' -f event='COMMENT'"})
+   ```
+
+**For inline comments on specific lines:**
+```
+exec({"command": "gh api repos/OWNER/REPO/pulls/NUMBER/comments -X POST -f body='COMMENT_TEXT' -f commit_id='COMMIT_SHA' -f path='FILE_PATH' -f line=LINE_NUMBER"})
+```
+
+**Review Format:**
+```
+**Review Summary:**
+- Overall assessment: [Approve/Request Changes/Comment]
+- Code quality: [Good/Needs work]
+- CI status: [Passing/Failing]
+
+**Inline Comments:**
+- File: path/to/file.rb, Line 42: "Consider using constant here"
+- File: path/to/file.rb, Line 55: "This logic could be simplified"
+
+**Action Items:**
+- [ ] Fix failing test
+- [ ] Address security concern
+```
+
+**Review Guidelines:**
+- Check for: logic errors, security issues, code style, test coverage
+- Be constructive and specific
+- Suggest improvements, not just point out problems
+- Approve if minor issues only, request changes for major issues
+
 ## Examples
 
 **User:** "Check my PRs"
@@ -136,3 +195,11 @@ Merge both? (yes/no)"
 
 **User:** "yes"
 **Agent:** *[Merges PRs and reports success]*
+
+**Scenario: Mentioned on GitHub**
+**GitHub:** "@danuclaw Can you review this PR?"
+**Agent:** *[Reacts with 👀 eyes, reads PR, posts review comments]*
+
+**Scenario: Assigned as reviewer**
+**GitHub:** "@danuclaw requested as reviewer"
+**Agent:** *[Reviews PR thoroughly, posts inline comments on diff, submits review]*
