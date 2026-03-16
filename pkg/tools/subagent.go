@@ -3,6 +3,8 @@ package tools
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -113,9 +115,8 @@ func (sm *SubagentManager) runTask(ctx context.Context, task *SubagentTask, call
 	task.Created = time.Now().UnixMilli()
 
 	// Build system prompt for subagent
-	systemPrompt := `You are a subagent. Complete the given task independently and report the result.
-You have access to tools - use them as needed to complete your task.
-After completing the task, provide a clear summary of what was done.`
+	// Load from external file so users can customize subagent behavior without code changes
+	systemPrompt := sm.loadSubagentSystemPrompt()
 
 	messages := []providers.Message{
 		{
@@ -358,4 +359,28 @@ func (t *SubagentTool) Execute(ctx context.Context, args map[string]any) *ToolRe
 		IsError: false,
 		Async:   false,
 	}
+}
+
+// loadSubagentSystemPrompt reads the system prompt from workspace/subagent-system-prompt.md
+// Falls back to a default prompt if the file doesn't exist
+func (sm *SubagentManager) loadSubagentSystemPrompt() string {
+	promptPath := filepath.Join(sm.workspace, "subagent-system-prompt.md")
+	
+	data, err := os.ReadFile(promptPath)
+	if err != nil {
+		// File doesn't exist, return default prompt
+		return fmt.Sprintf(`You are a subagent. Complete the given task independently and report the result.
+
+CRITICAL: BEFORE STARTING, read these files:
+1. read_file({"path": "%s/workspace/AGENTS.md"})
+2. read_file({"path": "%s/workspace/IDENTITY.md"})
+3. read_file({"path": "%s/workspace/memory/MEMORY.md"}) (if exists)
+
+CRITICAL RULES:
+- ONLY use 'exec' tool for shell commands (NOT 'bash', 'shell', etc.)
+- Use RTK prefix: rtk git status, rtk gh pr list
+- Use 'browser' tool for interactive websites`, sm.workspace, sm.workspace, sm.workspace)
+	}
+	
+	return string(data)
 }
