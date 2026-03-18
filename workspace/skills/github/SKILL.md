@@ -16,16 +16,14 @@ Interact with GitHub repositories using the `gh` CLI. This skill enables autonom
 
 ## Authentication
 
-**ALWAYS use the CLASSIC token for authentication.**
+**ALWAYS use the auth token for authentication.**
 
 Before any GitHub operation:
-1. Read MEMORY.md to get the classic token: `read_file({"path": "/home/picoclaw/.picoclaw/workspace/memory/MEMORY.md"})`
-2. Extract the classic token (starts with `ghp_`)
-3. Authenticate: `exec({"command": "echo CLASSIC_TOKEN | gh auth login --with-token"})`
+1. Read MEMORY.md to get the auth token: `read_file({"path": "/home/picoclaw/.picoclaw/workspace/memory/MEMORY.md"})`
+2. Extract the auth token (starts with `ghp_`)
+3. Authenticate: `exec({"command": "echo GH_TOKEN | gh auth login --with-token"})`
 
-The **classic token** is stored in MEMORY.md under "Github Account" → "Classic token (USE THIS)".
-
-**Why classic token?** It has broader permissions for repository operations, PR reviews, and issue management compared to fine-grained tokens.
+The **auth token** is stored in MEMORY.md under "Github Account" → "Auth token".
 
 ## Autonomous Workflows
 
