@@ -31,6 +31,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     chromium \
     build-essential \
+    git \
     gh \
     && rm -rf /var/lib/apt/lists/*
 
