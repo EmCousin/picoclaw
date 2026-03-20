@@ -80,9 +80,9 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # Copy binary
 COPY --from=builder /src/build/picoclaw /usr/local/bin/picoclaw
 
-# Create non-root user
+# Create non-root user and add to docker group
 RUN groupadd -g 1001 picoclaw && \
-    useradd -u 1001 -g picoclaw -m -s /bin/bash picoclaw && \
+    useradd -u 1001 -g picoclaw -G docker -m -s /bin/bash picoclaw && \
     mkdir -p /home/picoclaw/.picoclaw && \
     chown -R picoclaw:picoclaw /home/picoclaw/.picoclaw && \
     chown picoclaw:picoclaw /usr/local/bin/picoclaw
@@ -99,5 +99,12 @@ RUN npx playwright install chromium
 # Run onboard to create initial directories and config
 RUN /usr/local/bin/picoclaw onboard
 
-ENTRYPOINT ["picoclaw"]
-CMD ["gateway"]
+# Switch back to root to copy entrypoint
+USER root
+
+# Copy entrypoint script
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD []
