@@ -21,11 +21,13 @@ RUN make generate && \
     -o build/picoclaw ./cmd/picoclaw
 
 # ============================================================
-# Stage 2: Runtime image with glibc support
+# Stage 2: Runtime image with Ruby, Docker, and all tools
 # ============================================================
-FROM node:20-bookworm-slim
+FROM ruby:3.4.6-bookworm
 
-RUN apt-get update && apt-get install -y \
+# Install Node.js (needed for agent-browser)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get update && apt-get install -y \
     ca-certificates \
     tzdata \
     curl \
@@ -34,10 +36,10 @@ RUN apt-get update && apt-get install -y \
     git \
     gh \
     apt-transport-https \
-    ca-certificates \
     gnupg \
     lsb-release \
     software-properties-common \
+    nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker
@@ -78,11 +80,12 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # Copy binary
 COPY --from=builder /src/build/picoclaw /usr/local/bin/picoclaw
 
-# Create non-root user (use different UID/GID since 1000 exists)
+# Create non-root user
 RUN groupadd -g 1001 picoclaw && \
     useradd -u 1001 -g picoclaw -m -s /bin/bash picoclaw && \
     mkdir -p /home/picoclaw/.picoclaw && \
-    chown -R picoclaw:picoclaw /home/picoclaw/.picoclaw
+    chown -R picoclaw:picoclaw /home/picoclaw/.picoclaw && \
+    chown picoclaw:picoclaw /usr/local/bin/picoclaw
 
 # Install Rust toolchain and RTK as picoclaw user
 USER picoclaw

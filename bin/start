@@ -73,10 +73,19 @@ echo ""
 echo -e "${BLUE}🚀 Starting PicoClaw Gateway...${NC}"
 echo ""
 
-# Run PicoClaw Gateway
+# Run PicoClaw Gateway with Docker socket mount for container-in-container support
+# Mount Docker socket from host (requires Docker Desktop or local Docker)
+if [ -S /var/run/docker.sock ]; then
+    DOCKER_SOCK_MOUNT="-v /var/run/docker.sock:/var/run/docker.sock"
+else
+    echo -e "${YELLOW}⚠ Warning: Docker socket not found. Docker-in-Docker will not work.${NC}"
+    DOCKER_SOCK_MOUNT=""
+fi
+
 docker run -d \
     --name "$CONTAINER_NAME" \
     -v "$DATA_DIR:/home/picoclaw/.picoclaw" \
+    $DOCKER_SOCK_MOUNT \
     -e PICOCLAW_TOOLS_BROWSER_ENABLED=true \
     -e PICOCLAW_HOME=/home/picoclaw/.picoclaw \
     -e PATH="/home/picoclaw/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
