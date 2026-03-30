@@ -26,6 +26,9 @@ build/
 # Secrets & Config (keep templates, ignore actual secrets)
 .env
 config/config.json
+.security.yml
+onboard
+
 
 # Test
 coverage.txt
@@ -41,6 +44,7 @@ tasks/
 
 # Plans
 docs/plans/
+docs/superpowers/
 
 # Editors
 .vscode/
@@ -63,5 +67,6 @@ web/backend/dist/*
 
 # Workspace memory
 workspace/memory/MEMORY.md
+.claude/
 
 docker/data
